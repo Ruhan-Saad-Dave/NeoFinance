@@ -50,22 +50,27 @@ config = types.GenerateContentConfig(
     """
 )
 
-temp = client.Client(api_key=GEMINI_API_KEY)
-chat = temp.chats.create(model="gemini-1.5-pro", config=config)
+_client = client.Client(api_key=GEMINI_API_KEY)
 
-def chatting(message, history):
+def create_chat():
+    return _client.chats.create(model="gemini-1.5-pro", config=config)
+
+def chatting(message, history, chat_state):
     if message == "":
-        return history
-    
+        return history, chat_state
+
+    if chat_state is None:
+        chat_state = create_chat()
+
     history = history + [[message, None]]
-    
+
     try:
-        response = chat.send_message_stream(message)
+        response = chat_state.send_message_stream(message)
         partial_response = ""
         for chunk in response:
             partial_response += chunk.text
             history[-1][1] = partial_response
-            yield history
+            yield history, chat_state
 
     except errors.APIError as e:
         error_message = ""
@@ -74,10 +79,10 @@ def chatting(message, history):
         elif "INVALID_ARGUMENT" in str(e):
             error_message = "🚨 Invalid API Key! Please check and enter a valid API key."
         else:
-            error_message = f"❌ An error occurred: {str(e)}"
-        
+            error_message = "❌ An error occurred. Please try again."
+
         history[-1][1] = error_message
-        yield history
+        yield history, chat_state
 
 def transcribe_with_whisper(audio):
     try:
@@ -102,29 +107,31 @@ def transcribe_with_whisper(audio):
     except Exception as e:
         return None, f"❌ Transcription error: {e}"
 
-def process_audio(audio_data, history):
+def process_audio(audio_data, history, chat_state):
     if audio_data is None:
         history = history + [["No audio detected", "Please record audio and try again."]]
-        return history
+        yield history, chat_state
+        return
+
+    if chat_state is None:
+        chat_state = create_chat()
 
     history = history + [["🎤 Processing audio...", None]]
-    
+
     try:
         _, transcribed_text = transcribe_with_whisper(audio_data)
         history[-1][0] = f"🎤 You said: {transcribed_text}"
 
-        # Send transcribed text to Gemini
-        response = chat.send_message_stream(transcribed_text)
+        response = chat_state.send_message_stream(transcribed_text)
         partial_response = ""
         for chunk in response:
             partial_response += chunk.text
             history[-1][1] = partial_response
-            yield history
+            yield history, chat_state
 
-    except Exception as e:
-        error_message = f"❌ Error processing audio: {str(e)}"
-        history[-1][1] = error_message
-        yield history
+    except Exception:
+        history[-1][1] = "❌ Error processing audio. Please try again."
+        yield history, chat_state
 
 def main():
     with gr.Blocks(title="AuroFinance") as demo:
@@ -147,6 +154,7 @@ def main():
         - Provide **historical commodity prices** (Currently supports: **Gold, Silver, Platinum, Copper**).  
         """)
 
+        chat_state = gr.State(None)
         chatbot = gr.Chatbot()
         with gr.Row():
             msg = gr.Textbox(
@@ -162,13 +170,13 @@ def main():
             audio_input = gr.Audio(
                 label="Or speak your question",
                 sources=["microphone"],
-                type="numpy",  # ✅ Needed for Whisper
+                type="numpy",
                 scale=9
             )
 
-        msg.submit(fn=chatting, inputs=[msg, chatbot], outputs=chatbot)
-        text_button.click(fn=chatting, inputs=[msg, chatbot], outputs=chatbot)
-        audio_button.click(fn=process_audio, inputs=[audio_input, chatbot], outputs=chatbot)
+        msg.submit(fn=chatting, inputs=[msg, chatbot, chat_state], outputs=[chatbot, chat_state])
+        text_button.click(fn=chatting, inputs=[msg, chatbot, chat_state], outputs=[chatbot, chat_state])
+        audio_button.click(fn=process_audio, inputs=[audio_input, chatbot, chat_state], outputs=[chatbot, chat_state])
 
         msg.submit(lambda: "", outputs=[msg])
         text_button.click(lambda: "", outputs=[msg])

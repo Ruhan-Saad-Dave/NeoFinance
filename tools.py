@@ -144,9 +144,6 @@ def fetch_stock_history(ticker: str, days: int) -> str:
             for entry in result
         ])
 
-        # 🔥 Debugging: Print final formatted response before returning
-        print(f"📤 Returning Stock History:\n{formatted_data}")
-
         return formatted_data if formatted_data.strip() else f"No historical data found for {ticker}."
 
     except Exception as e:
@@ -417,8 +414,12 @@ def calculation(num1: float, num2:float, mode: str) -> Union[str, float]:
             return "Division by zero error."
         return num1 / num2
     elif mode.lower() == "floor":
+        if num2 == 0:
+            return "Division by zero error."
         return num1 // num2
     elif mode.lower() == "remainder":
+        if num2 == 0:
+            return "Division by zero error."
         return num1 % num2
     else:
         return "Invalid symbol, or might not be implemented yet." 
@@ -548,8 +549,8 @@ def top_gainers_losers() -> str:
         }
 
         return str(extracted_data)
-    except Exception:
-        return f"Something went wrong. {data}"
+    except Exception as e:
+        return f"Something went wrong. {e}"
 
 def fetch_commodity_history(ticker: str, days: int) -> Union[str, List[dict]]:
     """
@@ -597,7 +598,7 @@ def get_news_sentiment(ticker: str, topic: str) -> str:
             cleaned_item = {
                 "title": item.get("title"),
                 "url": item.get("url"),
-                "published": datetime.datetime.strptime(item.get("time_published"), "%Y%m%dT%H%M%S").strftime("%Y-%m-%d %H:%M:%S"),
+                "published": datetime.strptime(item.get("time_published"), "%Y%m%dT%H%M%S").strftime("%Y-%m-%d %H:%M:%S"),
                 "summary": item.get("summary"),
                 "source": item.get("source"),
                 "overall_sentiment": item.get("overall_sentiment_label"),
@@ -613,7 +614,7 @@ def get_news_sentiment(ticker: str, topic: str) -> str:
 
         return str(cleaned_feed)
     except Exception as e:
-        return f"Something went wrong. {data}"
+        return f"Something went wrong. {e}"
     
 def get_intraday_stock(ticker: str, mins: int) -> str:
     """
@@ -646,7 +647,7 @@ def get_intraday_stock(ticker: str, mins: int) -> str:
         
         return str(cleaned_data)
     except Exception as e:
-        return f"Something went wrong: {data}"
+        return f"Something went wrong: {e}"
     
 def predict_stock_intraday_price(ticker: str, mins: int) -> str:
     """

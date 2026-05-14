@@ -16,7 +16,9 @@ import gradio as gr
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import shutil
-ALPHA_API_KEY="NGVTBGVGUMCLYFNW"
+from dotenv import load_dotenv
+load_dotenv()
+ALPHA_API_KEY = os.getenv("ALPHA_API_KEY")
 
 # Define constants
 CONFIG_PATH = "config.json"
